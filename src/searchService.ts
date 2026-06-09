@@ -74,6 +74,10 @@ class ProxyPool {
     return proxies;
   }
 
+  public getAllProxies(): string[] {
+    return [...this.proxies];
+  }
+
   public getNextProxy(): string | undefined {
     if (!this.proxies.length) return undefined;
     const proxy = this.proxies[this.index % this.proxies.length];
@@ -266,18 +270,24 @@ export class SearchService {
   }
 
   private async executeEngineWithRetries(engine: Engine, query: string, limit: number, warnings: string[]): Promise<SearchResult[]> {
-    const maxAttempts = 3;
+    const proxies = this.proxyPool.getAllProxies().slice(0, 2);
+    const targets = proxies.length ? [...proxies, undefined] : [undefined];
     let lastError: Error | null = null;
-    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-      const proxy = this.proxyPool.getNextProxy();
+
+    for (let attempt = 0; attempt < targets.length; attempt += 1) {
+      const proxy = targets[attempt];
       try {
+        if (proxy) {
+          this.proxyPool.lastUsedProxy = proxy;
+        }
         return await this.tryEngine(engine, query, limit, proxy);
       } catch (error) {
         lastError = error as Error;
-        warnings.push(`engine ${engine} attempt ${attempt + 1} failed: ${lastError.message}`);
+        warnings.push(`engine ${engine} attempt ${attempt + 1} failed${proxy ? ` using proxy ${proxy}` : " direct"}: ${lastError.message}`);
       }
       await this.randomSleep(500 + Math.random() * 400);
     }
+
     if (lastError) throw lastError;
     return [];
   }
