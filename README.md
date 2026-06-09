@@ -48,3 +48,20 @@ Body:
 ```
 
 Response includes `results`, `engineUsed`, and optional `proxyUsed`.
+
+POST `/api/extract`
+
+Body:
+
+```json
+{
+  "urls": [
+    "https://example.com/article",
+    "https://example.com/another-post"
+  ],
+  "timeoutMs": 20000,
+  "limit": 3
+}
+```
+
+Response includes `results` with `url`, `title`, `snippet`, and extracted `content`.

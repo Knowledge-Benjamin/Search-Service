@@ -1,6 +1,7 @@
 import express, { json, Request, Response, NextFunction } from "express";
 import dotenv from "dotenv";
 import searchRouter from "./searchRoute";
+import extractRouter from "./extractRoute";
 
 dotenv.config();
 
@@ -27,6 +28,7 @@ app.get("/health", (_, res) => {
   res.json({ status: "ok", service: "aris-search-service", origin: process.env.SEARCH_SERVICE_ORIGIN || "local" });
 });
 app.use("/api/search", searchRouter);
+app.use("/api/extract", extractRouter);
 
 app.use((_, res) => {
   res.status(404).json({ error: "Route not found" });
