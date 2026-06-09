@@ -47,6 +47,15 @@ interface SearchResponse {
   elapsedMs: number;
 }
 
+function isValidProxy(proxyUrl: string): boolean {
+  try {
+    const url = new URL(proxyUrl);
+    return ["http:", "https:"].includes(url.protocol) && Boolean(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 class ProxyPool {
   private proxies: string[] = [];
   private index = 0;
@@ -58,7 +67,11 @@ class ProxyPool {
 
   private loadProxies(): string[] {
     const list = process.env.SEARCH_PROXY_LIST?.split(",").map((item) => item.trim()).filter(Boolean) || [];
-    return list;
+    const proxies = list.filter(isValidProxy);
+    if (list.length && !proxies.length) {
+      console.warn("SEARCH_PROXY_LIST is set but contains no valid proxy URLs. Falling back to direct connections.");
+    }
+    return proxies;
   }
 
   public getNextProxy(): string | undefined {

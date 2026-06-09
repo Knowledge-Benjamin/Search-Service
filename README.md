@@ -26,10 +26,12 @@ A custom search proxy service designed for deployed internet search access with 
 
 Copy `.env.example` to `.env` and configure:
 
-- `SEARCH_PROXY_LIST` - comma-separated HTTP(S) proxy URLs
-- `SEARCH_SEARX_URL` - optional Searx deployment for JSON search
+- `SEARCH_PROXY_LIST` - comma-separated HTTP(S) proxy URLs; leave blank to use direct connections
+- `SEARCH_SEARX_URL` - optional Searx deployment for JSON search; leave blank to use default search backends
 - `SEARCH_SERVICE_ORIGIN` - optional health label
 - `PORT` - service listen port
+
+> Do not commit `.env` into the repository or build image. Local `.env` values are excluded from Docker builds via `.dockerignore`.
 
 ## API
 
