@@ -147,7 +147,8 @@ function buildRequestConfig(proxy?: string): AxiosRequestConfig {
   return config;
 }
 
-function detectBlock(html: string, url: string): boolean {
+function detectBlock(html: string | undefined, url: string): boolean {
+  if (!html || typeof html !== "string") return true;
   const lower = html.toLowerCase();
   return (
     lower.includes("unusual traffic") ||
@@ -159,7 +160,8 @@ function detectBlock(html: string, url: string): boolean {
   );
 }
 
-function parseGoogle(html: string, limit: number): SearchResult[] {
+function parseGoogle(html: string | undefined, limit: number): SearchResult[] {
+  if (!html || typeof html !== "string") return [];
   const $ = cheerio.load(html);
   const results: SearchResult[] = [];
 
@@ -176,7 +178,8 @@ function parseGoogle(html: string, limit: number): SearchResult[] {
   return results;
 }
 
-function parseBing(html: string, limit: number): SearchResult[] {
+function parseBing(html: string | undefined, limit: number): SearchResult[] {
+  if (!html || typeof html !== "string") return [];
   const $ = cheerio.load(html);
   const results: SearchResult[] = [];
 
@@ -193,7 +196,8 @@ function parseBing(html: string, limit: number): SearchResult[] {
   return results;
 }
 
-function parseDuckDuckGo(html: string, limit: number): SearchResult[] {
+function parseDuckDuckGo(html: string | undefined, limit: number): SearchResult[] {
+  if (!html || typeof html !== "string") return [];
   const $ = cheerio.load(html);
   const results: SearchResult[] = [];
 

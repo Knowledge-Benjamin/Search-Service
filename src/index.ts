@@ -7,8 +7,7 @@ dotenv.config();
 const app = express();
 app.use(json());
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-  const bodyError = err as { status?: number; body?: unknown };
-  if (err instanceof SyntaxError && bodyError.status === 400 && "body" in bodyError) {
+  if (err && err.status === 400 && err.type === "entity.parse.failed") {
     console.error("Invalid JSON body", err.message);
     return res.status(400).json({ error: "Invalid JSON body" });
   }
