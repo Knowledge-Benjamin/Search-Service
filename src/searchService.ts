@@ -40,7 +40,7 @@ interface SearchResult {
 interface SearchResponse {
   query: string;
   results: SearchResult[];
-  engines: string[];
+  engines: Engine[];
   engineUsed: string;
   proxyUsed?: string;
   warnings?: string[];
@@ -246,10 +246,10 @@ export class SearchService {
   }
 
   private normalizeEngines(engines?: string): Engine[] {
-    if (!engines) return ENGINE_ORDER;
+    if (!engines) return [...ENGINE_ORDER];
     const requested = engines.split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
     const filtered = requested.filter((engine): engine is Engine => ENGINE_ORDER.includes(engine as Engine));
-    return filtered.length ? filtered : ENGINE_ORDER;
+    return filtered.length ? filtered : [...ENGINE_ORDER];
   }
 
   private async executeEngineWithRetries(engine: Engine, query: string, limit: number, warnings: string[]): Promise<SearchResult[]> {
