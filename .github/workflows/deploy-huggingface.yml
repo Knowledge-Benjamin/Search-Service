@@ -24,7 +24,6 @@ jobs:
         run: npm run build
 
       - name: Deploy to Hugging Face Space
-        if: ${{ secrets.HF_TOKEN && secrets.HF_SPACE_REPO }}
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE_REPO: ${{ secrets.HF_SPACE_REPO }}
