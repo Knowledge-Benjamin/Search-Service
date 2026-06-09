@@ -2,7 +2,7 @@
 title: Aris Search Service
 emoji: "🔎"
 colorFrom: "blue"
-colorTo: "teal"
+colorTo: "indigo"
 sdk: docker
 sdk_version: "1"
 app_file: Dockerfile
