@@ -164,18 +164,33 @@ function parseGoogle(html: string | undefined, limit: number): SearchResult[] {
   if (!html || typeof html !== "string") return [];
   const $ = load(html);
   const results: SearchResult[] = [];
+  const seenUrls = new Set<string>();
 
-  $("div.g").each((_, element) => {
+  const pushResult = (element: any) => {
     if (results.length >= limit) return;
-    const title = $(element).find("h3").text().trim();
-    const url = $(element).find("a").attr("href") || "";
-    const snippet = $(element).find("span.aCOpRe, div.IsZvec").text().trim();
-    if (title && url) {
+    const anchor = element.find("a").first();
+    const title = anchor.find("h3").text().trim() || element.find("h3").text().trim();
+    const url = anchor.attr("href") || "";
+    const snippet = element.find("div.IsZvec, span.aCOpRe, div.VwiC3b, div.BNeawe.s3v9rd").first().text().trim();
+    if (title && url && !seenUrls.has(url)) {
+      seenUrls.add(url);
       results.push({ title, snippet, url, engine: "google" });
     }
+  };
+
+  $("div.g, div.yuRUbf").each((_, element) => {
+    if (results.length >= limit) return;
+    pushResult($(element));
   });
 
-  return results;
+  if (!results.length) {
+    $("div.g").each((_, element) => {
+      if (results.length >= limit) return;
+      pushResult($(element));
+    });
+  }
+
+  return results.slice(0, limit);
 }
 
 function parseBing(html: string | undefined, limit: number): SearchResult[] {

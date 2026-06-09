@@ -14,7 +14,11 @@ router.post("/", async (req: Request, res: Response) => {
     const response = await searchService.search({ query, engines, limit });
     res.json(response);
   } catch (error) {
-    console.error("searchRoute error", error);
+    console.error("searchRoute error", {
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined,
+      body: req.body
+    });
     res.status(500).json({ error: "Search service error" });
   }
 });
