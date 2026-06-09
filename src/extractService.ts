@@ -130,6 +130,66 @@ function detectBlock(html: string | undefined, url: string): boolean {
   );
 }
 
+function isLowValueContent(text: string): boolean {
+  const lower = text.toLowerCase();
+  return (
+    lower.includes("please click here if the page does not redirect automatically") ||
+    lower.includes("if the page does not redirect automatically") ||
+    lower.includes("you are being redirected") ||
+    lower.includes("redirecting") ||
+    lower.includes("redirect notice") ||
+    lower.includes("this page will redirect") ||
+    lower.includes("click here to continue") ||
+    lower.includes("continue to") && lower.includes("this page")
+  );
+}
+
+function findRedirectTarget($: CheerioAPI, html: string, baseUrl: string): string | undefined {
+  const refresh = $("meta[http-equiv='refresh']").attr("content");
+  if (refresh) {
+    const match = refresh.match(/\d+\s*;\s*url=(.+)/i);
+    if (match?.[1]) {
+      try {
+        return new URL(match[1].trim(), baseUrl).toString();
+      } catch {
+        // ignore invalid URL
+      }
+    }
+  }
+
+  const anchorSelectors = [
+    "a[href]",
+  ];
+
+  for (const selector of anchorSelectors) {
+    const anchors = $(selector).toArray();
+    for (const anchor of anchors) {
+      const $anchor = $(anchor);
+      const href = $anchor.attr("href");
+      if (!href) continue;
+      const text = cleanText($anchor.text()).toLowerCase();
+      if (/click here|continue|redirect|proceed/.test(text) || text.includes("if the page does not redirect")) {
+        try {
+          return new URL(href.trim(), baseUrl).toString();
+        } catch {
+          continue;
+        }
+      }
+    }
+  }
+
+  const scriptMatch = html.match(/window\.location(?:\.href|\s*=|\.replace\s*\()\s*['"]([^'"]+)['"]/i);
+  if (scriptMatch?.[1]) {
+    try {
+      return new URL(scriptMatch[1].trim(), baseUrl).toString();
+    } catch {
+      // ignore invalid URL
+    }
+  }
+
+  return undefined;
+}
+
 function sentenceSnippet(text: string, maxLength = 240): string {
   if (!text) return "";
   const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
@@ -279,22 +339,40 @@ export class ExtractService {
   private async fetchAndParse(url: string, timeoutMs: number): Promise<ExtractResult> {
     const proxy = this.proxyPool.getNextProxy();
     const config = buildRequestConfig(proxy, timeoutMs);
-    const response = await axios.get<string>(url, config);
-    const html = response.data;
-    const finalUrl = (response.request as any)?.res?.responseUrl || url;
 
-    if (detectBlock(html, finalUrl)) {
+    const primaryResponse = await axios.get<string>(url, config);
+    const primaryHtml = primaryResponse.data;
+    const finalUrl = (primaryResponse.request as any)?.res?.responseUrl || url;
+
+    if (detectBlock(primaryHtml, finalUrl)) {
       throw new Error("Blocked or bot-detection page returned");
     }
 
-    const $ = load(html);
-    const title = extractTitle($) || "";
-    const description = extractDescription($);
-    const content = extractMainContent($);
+    let $ = load(primaryHtml);
+    let title = extractTitle($) || "";
+    let description = extractDescription($);
+    let content = extractMainContent($);
+
+    if (!content || isLowValueContent(content)) {
+      const targetUrl = findRedirectTarget($, primaryHtml, finalUrl);
+      if (targetUrl && targetUrl !== finalUrl) {
+        const secondaryResponse = await axios.get<string>(targetUrl, config);
+        const secondaryHtml = secondaryResponse.data;
+        const secondaryFinalUrl = (secondaryResponse.request as any)?.res?.responseUrl || targetUrl;
+
+        if (!detectBlock(secondaryHtml, secondaryFinalUrl)) {
+          $ = load(secondaryHtml);
+          title = extractTitle($) || title;
+          description = extractDescription($) || description;
+          content = extractMainContent($);
+        }
+      }
+    }
+
     const snippet = description || sentenceSnippet(content);
 
-    if (!content) {
-      throw new Error("No extractable content found");
+    if (!content || isLowValueContent(content)) {
+      throw new Error("No extractable content found or page appears to be a redirect/placeholder");
     }
 
     return {
