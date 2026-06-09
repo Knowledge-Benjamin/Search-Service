@@ -23,6 +23,7 @@ app.use((_, res) => {
 });
 
 const port = Number(process.env.PORT || 8080);
-app.listen(port, () => {
-  console.log(`Aris search service listening on port ${port}`);
+const host = process.env.HOST || "0.0.0.0";
+app.listen(port, host, () => {
+  console.log(`Aris search service listening on ${host}:${port}`);
 });
