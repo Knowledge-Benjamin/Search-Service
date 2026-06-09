@@ -5,6 +5,7 @@ colorFrom: "blue"
 colorTo: "indigo"
 sdk: docker
 sdk_version: "1"
+app_port: 8080
 app_file: Dockerfile
 pinned: false
 ---
