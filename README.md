@@ -1,3 +1,14 @@
+---
+title: Aris Search Service
+emoji: "🔎"
+colorFrom: "blue"
+colorTo: "teal"
+sdk: docker
+sdk_version: "1"
+app_file: Dockerfile
+pinned: false
+---
+
 # Aris Search Service
 
 A custom search proxy service designed for deployed internet search access with basic proxy rotation and bot-detection evasion.
