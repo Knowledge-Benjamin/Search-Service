@@ -1,5 +1,5 @@
 ﻿import axios, { AxiosRequestConfig } from "axios";
-import cheerio from "cheerio";
+import { load } from "cheerio";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import dotenv from "dotenv";
 
@@ -162,7 +162,7 @@ function detectBlock(html: string | undefined, url: string): boolean {
 
 function parseGoogle(html: string | undefined, limit: number): SearchResult[] {
   if (!html || typeof html !== "string") return [];
-  const $ = cheerio.load(html);
+  const $ = load(html);
   const results: SearchResult[] = [];
 
   $("div.g").each((_, element) => {
@@ -180,7 +180,7 @@ function parseGoogle(html: string | undefined, limit: number): SearchResult[] {
 
 function parseBing(html: string | undefined, limit: number): SearchResult[] {
   if (!html || typeof html !== "string") return [];
-  const $ = cheerio.load(html);
+  const $ = load(html);
   const results: SearchResult[] = [];
 
   $("li.b_algo").each((_, element) => {
@@ -198,7 +198,7 @@ function parseBing(html: string | undefined, limit: number): SearchResult[] {
 
 function parseDuckDuckGo(html: string | undefined, limit: number): SearchResult[] {
   if (!html || typeof html !== "string") return [];
-  const $ = cheerio.load(html);
+  const $ = load(html);
   const results: SearchResult[] = [];
 
   $("div.result").each((_, element) => {
@@ -287,6 +287,13 @@ export class SearchService {
         return await this.tryEngine(engine, query, limit, proxy);
       } catch (error) {
         lastError = error as Error;
+        console.error("Search engine attempt failed", {
+          engine,
+          attempt: attempt + 1,
+          proxy,
+          message: lastError.message,
+          stack: lastError.stack
+        });
         warnings.push(`engine ${engine} attempt ${attempt + 1} failed${proxy ? ` using proxy ${proxy}` : " direct"}: ${lastError.message}`);
       }
       await this.randomSleep(500 + Math.random() * 400);
@@ -307,11 +314,22 @@ export class SearchService {
       throw new Error("bot detection or block triggered");
     }
 
-    const results = this.parseEngineResponse(engine, html, limit);
-    if (!results.length) {
-      throw new Error("no results parsed");
+    try {
+      const results = this.parseEngineResponse(engine, html, limit);
+      if (!results.length) {
+        throw new Error("no results parsed");
+      }
+      return results;
+    } catch (error) {
+      console.error("Search parsing failed", {
+        engine,
+        url,
+        proxy,
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      throw error;
     }
-    return results;
   }
 
   private parseEngineResponse(engine: Engine, body: string, limit: number): SearchResult[] {
