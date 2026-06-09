@@ -13,6 +13,10 @@ app.use((req, res, next) => {
   next();
 });
 
+app.get("/", (_, res) => {
+  res.json({ status: "ok", service: "aris-search-service", origin: process.env.SEARCH_SERVICE_ORIGIN || "local" });
+});
+
 app.get("/health", (_, res) => {
   res.json({ status: "ok", service: "aris-search-service", origin: process.env.SEARCH_SERVICE_ORIGIN || "local" });
 });
