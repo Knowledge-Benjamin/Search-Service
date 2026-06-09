@@ -156,8 +156,28 @@ function detectBlock(html: string | undefined, url: string): boolean {
     lower.includes("your access has been blocked") ||
     lower.includes("please stand by") ||
     lower.includes("denied") ||
-    url.includes("sorry")
+    lower.includes("if you're having trouble accessing google search") ||
+    lower.includes("please show you're not a robot") ||
+    url.includes("sorry") ||
+    url.includes("/sorry/")
   );
+}
+
+function normalizeGoogleResultUrl(rawHref: string | undefined): string {
+  if (!rawHref || !rawHref.trim()) return "";
+  try {
+    const parsed = rawHref.startsWith("http")
+      ? new URL(rawHref)
+      : new URL(rawHref, "https://www.google.com");
+
+    if (parsed.hostname === "www.google.com" && parsed.pathname === "/url") {
+      return parsed.searchParams.get("q") || rawHref;
+    }
+
+    return parsed.toString();
+  } catch {
+    return rawHref;
+  }
 }
 
 function parseGoogle(html: string | undefined, limit: number): SearchResult[] {
@@ -166,29 +186,33 @@ function parseGoogle(html: string | undefined, limit: number): SearchResult[] {
   const results: SearchResult[] = [];
   const seenUrls = new Set<string>();
 
+  const extractSnippet = (element: any): string => {
+    return element
+      .find("div.VwiC3b, div.IsZvec, span.aCOpRe, div.BNeawe.s3v9rd, div.MjjYud, div.s3v9rd")
+      .first()
+      .text()
+      .trim();
+  };
+
   const pushResult = (element: any) => {
     if (results.length >= limit) return;
-    const anchor = element.find("a").first();
+
+    const anchor = element.find("div.yuRUbf > a, a[href]").first();
     const title = anchor.find("h3").text().trim() || element.find("h3").text().trim();
-    const url = anchor.attr("href") || "";
-    const snippet = element.find("div.IsZvec, span.aCOpRe, div.VwiC3b, div.BNeawe.s3v9rd").first().text().trim();
-    if (title && url && !seenUrls.has(url)) {
+    const rawUrl = anchor.attr("href") || "";
+    const url = normalizeGoogleResultUrl(rawUrl);
+    const snippet = extractSnippet(element);
+
+    if (title && url && !seenUrls.has(url) && !url.startsWith("/search?") && !url.includes("google.com/search")) {
       seenUrls.add(url);
       results.push({ title, snippet, url, engine: "google" });
     }
   };
 
-  $("div.g, div.yuRUbf").each((_, element) => {
+  $("div.tF2Cxc, div.g, div.yuRUbf").each((_, element) => {
     if (results.length >= limit) return;
     pushResult($(element));
   });
-
-  if (!results.length) {
-    $("div.g").each((_, element) => {
-      if (results.length >= limit) return;
-      pushResult($(element));
-    });
-  }
 
   return results.slice(0, limit);
 }
@@ -256,13 +280,20 @@ export class SearchService {
     let proxyUsed: string | undefined;
 
     for (const engine of engines) {
-      const engineResults = await this.executeEngineWithRetries(engine, request.query, limit, warnings);
-      if (engineResults.length > 0) {
-        engineUsed = engine;
-        if (!proxyUsed) proxyUsed = this.proxyPool.lastUsedProxy;
-        const deduped = engineResults.filter((result) => !aggregated.some((existing) => existing.url === result.url));
-        aggregated.push(...deduped);
+      try {
+        const engineResults = await this.executeEngineWithRetries(engine, request.query, limit, warnings);
+        if (engineResults.length > 0) {
+          engineUsed = engine;
+          if (!proxyUsed) proxyUsed = this.proxyPool.lastUsedProxy;
+          const deduped = engineResults.filter((result) => !aggregated.some((existing) => existing.url === result.url));
+          aggregated.push(...deduped);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error("Search engine failed and will continue", { engine, message, stack: error instanceof Error ? error.stack : undefined });
+        warnings.push(`engine ${engine} failed: ${message}`);
       }
+
       if (aggregated.length >= limit) break;
     }
 
