@@ -266,6 +266,10 @@ class ProxyPool {
     this.proxies = normalizeProxyList();
   }
 
+  public getAllProxies(): string[] {
+    return [...this.proxies];
+  }
+
   public getNextProxy(): string | undefined {
     if (!this.proxies.length) return undefined;
     const proxy = this.proxies[this.index % this.proxies.length];
@@ -324,20 +328,62 @@ export class ExtractService {
     const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
     const normalized = list
       .filter(Boolean)
-      .map((value) => {
-        try {
-          return new URL(value).toString();
-        } catch {
-          return value;
-        }
-      });
+      .map((value) => this.normalizeExtractUrl(value));
 
     const unique = Array.from(new Set(normalized));
     return typeof limit === "number" ? unique.slice(0, limit) : unique;
   }
 
+  private normalizeExtractUrl(rawUrl: string): string {
+    try {
+      const parsed = new URL(rawUrl);
+      if (parsed.hostname.endsWith("bing.com") && parsed.pathname.startsWith("/ck/a")) {
+        const target = parsed.searchParams.get("u") || parsed.searchParams.get("q");
+        if (target) {
+          const decoded = decodeURIComponent(target);
+          if (isValidUrl(decoded)) {
+            return decoded;
+          }
+
+          if (/^a[0-9]/.test(decoded)) {
+            const candidate = decoded.slice(2);
+            if (/^[A-Za-z0-9+/=]+$/.test(candidate)) {
+              try {
+                const resolved = Buffer.from(candidate, "base64").toString("utf8");
+                if (isValidUrl(resolved)) {
+                  return resolved;
+                }
+              } catch {
+                // ignore invalid base64
+              }
+            }
+          }
+        }
+      }
+
+      return parsed.toString();
+    } catch {
+      return rawUrl;
+    }
+  }
+
   private async fetchAndParse(url: string, timeoutMs: number): Promise<ExtractResult> {
-    const proxy = this.proxyPool.getNextProxy();
+    const proxies = this.proxyPool.getAllProxies();
+    const candidates = proxies.length ? [...proxies, undefined] : [undefined];
+    let lastError: Error | null = null;
+
+    for (const proxy of candidates) {
+      try {
+        return await this.fetchAndParseWithProxy(url, timeoutMs, proxy);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+      }
+    }
+
+    throw lastError ?? new Error("Failed to extract content");
+  }
+
+  private async fetchAndParseWithProxy(url: string, timeoutMs: number, proxy?: string): Promise<ExtractResult> {
     const config = buildRequestConfig(proxy, timeoutMs);
 
     const primaryResponse = await axios.get<string>(url, config);

@@ -30,6 +30,7 @@ Copy `.env.example` to `.env` and configure:
 - `SEARCH_SEARX_URL` - optional Searx deployment for JSON search; leave blank to use default search backends
 - `SEARCH_SERVICE_ORIGIN` - optional health label
 - `PORT` - service listen port
+- `SEARCH_EXTRACT_TIMEOUT_MS` - optional timeout for page extraction requests; defaults to `22000`
 
 > Do not commit `.env` into the repository or build image. Local `.env` values are excluded from Docker builds via `.dockerignore`.
 

@@ -180,6 +180,56 @@ function normalizeGoogleResultUrl(rawHref: string | undefined): string {
   }
 }
 
+function isValidUrl(value: string): boolean {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function tryDecodeBingTargetUrl(target: string | null): string | undefined {
+  if (!target) return undefined;
+
+  try {
+    const decoded = decodeURIComponent(target);
+    if (isValidUrl(decoded)) return decoded;
+
+    const candidate = decoded.startsWith("a1") || decoded.startsWith("a2")
+      ? decoded.slice(2)
+      : decoded;
+
+    if (/^[A-Za-z0-9+/=]+$/.test(candidate)) {
+      const buffered = Buffer.from(candidate, "base64").toString("utf8");
+      if (isValidUrl(buffered)) return buffered;
+    }
+  } catch {
+    // ignore invalid decode attempts
+  }
+
+  return undefined;
+}
+
+function normalizeBingResultUrl(rawUrl: string): string {
+  if (!rawUrl || !rawUrl.trim()) return "";
+  try {
+    const parsed = rawUrl.startsWith("http")
+      ? new URL(rawUrl)
+      : new URL(rawUrl, "https://www.bing.com");
+
+    if (parsed.hostname.endsWith("bing.com") && parsed.pathname.startsWith("/ck/a")) {
+      const target = parsed.searchParams.get("u") || parsed.searchParams.get("q");
+      const decoded = tryDecodeBingTargetUrl(target);
+      if (decoded) return decoded;
+    }
+
+    return parsed.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
 function parseGoogle(html: string | undefined, limit: number): SearchResult[] {
   if (!html || typeof html !== "string") return [];
   const $ = load(html);
@@ -225,7 +275,8 @@ function parseBing(html: string | undefined, limit: number): SearchResult[] {
   $("li.b_algo").each((_, element) => {
     if (results.length >= limit) return;
     const title = $(element).find("h2").text().trim();
-    const url = $(element).find("h2 a").attr("href") || "";
+    const rawUrl = $(element).find("h2 a").attr("href") || "";
+    const url = normalizeBingResultUrl(rawUrl);
     const snippet = $(element).find("p").text().trim();
     if (title && url) {
       results.push({ title, snippet, url, engine: "bing" });
