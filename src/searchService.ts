@@ -21,6 +21,8 @@ const REFERERS = [
 ];
 
 const ENGINE_ORDER = ["google", "bing", "duckduckgo", "searx"] as const;
+const DEFAULT_SEARCH_ENGINES = process.env.SEARCH_TOOL_ENGINES?.split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
+const SEARCH_SEARX_URL = process.env.SEARCH_SEARX_URL?.trim();
 
 type Engine = typeof ENGINE_ORDER[number];
 
@@ -364,10 +366,28 @@ export class SearchService {
   }
 
   private normalizeEngines(engines?: string): Engine[] {
-    if (!engines) return [...ENGINE_ORDER];
-    const requested = engines.split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
-    const filtered = requested.filter((engine): engine is Engine => ENGINE_ORDER.includes(engine as Engine));
-    return filtered.length ? filtered : [...ENGINE_ORDER];
+    const parseEngineList = (list?: string[]) => {
+      return (list || []).map((item) => item.trim().toLowerCase()).filter(Boolean).filter((engine): engine is Engine => ENGINE_ORDER.includes(engine as Engine));
+    };
+
+    if (!engines) {
+      const envEngines = parseEngineList(DEFAULT_SEARCH_ENGINES);
+      if (envEngines.length) {
+        return envEngines;
+      }
+      if (SEARCH_SEARX_URL) {
+        return ["searx", "duckduckgo", "bing", "google"];
+      }
+      return [...ENGINE_ORDER];
+    }
+
+    const requested = parseEngineList(engines.split(","));
+    if (requested.length) return requested;
+
+    const envEngines = parseEngineList(DEFAULT_SEARCH_ENGINES);
+    if (envEngines.length) return envEngines;
+
+    return [...ENGINE_ORDER];
   }
 
   private async executeEngineWithRetries(engine: Engine, query: string, limit: number, warnings: string[]): Promise<SearchResult[]> {

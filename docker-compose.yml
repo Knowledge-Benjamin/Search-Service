@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+  searx:
+    image: searx/searx:latest
+    container_name: aris-searx
+    ports:
+      - "8081:8080"
+    environment:
+      - SEARX_BIND_PORT=8080
+      - SEARX_SITE_URL=http://localhost:8081
+    restart: unless-stopped
+
+  search-service:
+    build: .
+    container_name: aris-search-service
+    depends_on:
+      - searx
+    ports:
+      - "8080:8080"
+    environment:
+      - SEARCH_SEARX_URL=http://searx:8080/search
+      - PORT=8080
+      - SEARCH_SERVICE_ORIGIN=local
+    restart: unless-stopped
