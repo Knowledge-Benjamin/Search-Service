@@ -17,7 +17,7 @@ RUN apt-get update \
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci
 
 RUN python3 -m pip install --no-cache-dir searx
 
