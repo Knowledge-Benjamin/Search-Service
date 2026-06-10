@@ -63,6 +63,8 @@ This repo now supports a single Docker image that starts both Searx and the sear
 
 ### Hugging Face Space usage
 
+Yes — Hugging Face can build this image for you. You do not need Docker or any local dependencies installed on your machine.
+
 If you deploy this image in a Hugging Face Space, the public URL that Aris should call is the search service endpoint:
 
 - `SEARCH_SERVICE_URL=https://<your-space-name>.hf.space`
@@ -71,7 +73,12 @@ You do not need to expose Searx directly to Aris. `SEARCH_SEARX_URL` is only for
 
 - `SEARCH_SEARX_URL=http://127.0.0.1:8081/search`
 
-That means Aris connects to the Hugging Face Space URL for the search service, and the search service connects internally to Searx.
+That means:
+
+- Aris connects to the Hugging Face Space public URL
+- The search service connects internally to Searx
+
+For Hugging Face deployment, you can push this repo to a Docker-enabled Space and HF will build the Docker image server-side. There is no need to run Docker locally.
 
 > Do not commit `.env` into the repository or build image. Local `.env` values are excluded from Docker builds via `.dockerignore`.
 
