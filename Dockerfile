@@ -1,7 +1,17 @@
 FROM node:20-bullseye-slim
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3 python3-pip build-essential \
+  && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-dev \
+    build-essential \
+    libxml2-dev \
+    libxslt1-dev \
+    zlib1g-dev \
+    libffi-dev \
+    libssl-dev \
+    pkg-config \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
