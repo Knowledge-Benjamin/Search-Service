@@ -10,7 +10,7 @@ fi
 printf "Using SEARCH_SEARX_URL=%s\n" "$SEARCH_SEARX_URL"
 
 START_LOCAL_SEARX=0
-SEARCH_SEARX_HOST=$(printf '%s' "$SEARCH_SEARX_URL" | sed -E 's#^https?://([^/]+).*#\1#')
+SEARCH_SEARX_HOST=$(printf '%s' "$SEARCH_SEARX_URL" | sed -E 's#^https?://([^/:]+).*#\1#')
 case "$SEARCH_SEARX_HOST" in
   localhost|127.0.0.1|searx)
     START_LOCAL_SEARX=1
