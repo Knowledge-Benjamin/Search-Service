@@ -69,14 +69,16 @@ If you deploy this image in a Hugging Face Space, the public URL that Aris shoul
 
 - `SEARCH_SERVICE_URL=https://<your-space-name>.hf.space`
 
-You do not need to expose Searx directly to Aris. `SEARCH_SEARX_URL` is only for the internal search service container and should point to the local Searx endpoint inside the same image or space:
+You do not need to expose Searx directly to Aris. If you want the Space to run Searx locally in the same image, set `SEARCH_SEARX_URL` to the local Searx endpoint inside the container:
 
 - `SEARCH_SEARX_URL=http://127.0.0.1:8081/search`
+
+If you instead want to use a remote Searx instance, set `SEARCH_SEARX_URL` to that external service. In that case, the startup script will skip local Searx and use the remote endpoint.
 
 That means:
 
 - Aris connects to the Hugging Face Space public URL
-- The search service connects internally to Searx
+- The search service connects to Searx via `SEARCH_SEARX_URL`
 
 For Hugging Face deployment, you can push this repo to a Docker-enabled Space and HF will build the Docker image server-side. There is no need to run Docker locally.
 
