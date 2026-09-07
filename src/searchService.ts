@@ -30,6 +30,17 @@ interface SearchRequest {
   query: string;
   engines?: string;
   limit?: number;
+  domains?: string[] | string;
+  excludeDomains?: string[] | string;
+  site?: string;
+  exactPhrase?: string;
+  location?: string;
+  timeRange?: "day" | "week" | "month" | "year";
+  after?: string;
+  before?: string;
+  intitle?: string;
+  inurl?: string;
+  filetype?: string;
 }
 
 interface SearchResult {
@@ -110,13 +121,40 @@ function randomHeaders(): Record<string, string> {
   };
 }
 
-function buildSearchUrl(engine: Engine, query: string, limit: number): string {
+function normalizeList(value?: string[] | string): string[] {
+  return (Array.isArray(value) ? value : String(value || "").split(","))
+    .map((item) => item.trim().replace(/^https?:\/\//i, "").replace(/\/$/, ""))
+    .filter(Boolean);
+}
+
+function appendSearchOperator(query: string, operator: string, value?: string): string {
+  const normalized = String(value || "").trim();
+  return normalized ? `${query} ${operator}${normalized}` : query;
+}
+
+function buildAdvancedQuery(request: SearchRequest): string {
+  let query = request.query.trim();
+  const sites = [...normalizeList(request.domains), ...normalizeList(request.site)];
+  for (const site of sites) query = appendSearchOperator(query, "site:", site);
+  for (const domain of normalizeList(request.excludeDomains)) query = appendSearchOperator(query, "-site:", domain);
+  if (request.exactPhrase) query = `${query} "${String(request.exactPhrase).replace(/"/g, "")}"`;
+  if (request.intitle) query = appendSearchOperator(query, "intitle:", request.intitle);
+  if (request.inurl) query = appendSearchOperator(query, "inurl:", request.inurl);
+  if (request.filetype) query = appendSearchOperator(query, "filetype:", String(request.filetype).replace(/^\./, ""));
+  if (request.location) query += ` "${String(request.location).replace(/"/g, "")}"`;
+  if (request.after) query = appendSearchOperator(query, "after:", request.after);
+  if (request.before) query = appendSearchOperator(query, "before:", request.before);
+  return query;
+}
+
+function buildSearchUrl(engine: Engine, query: string, limit: number, timeRange?: SearchRequest["timeRange"]): string {
   const encoded = encodeURIComponent(query);
+  const googleRange = timeRange ? `&tbs=qdr:${timeRange === "day" ? "d" : timeRange === "week" ? "w" : timeRange === "month" ? "m" : "y"}` : "";
   switch (engine) {
     case "google":
-      return `https://www.google.com/search?q=${encoded}&num=${Math.min(limit, 10)}`;
+      return `https://www.google.com/search?q=${encoded}&num=${Math.min(limit, 10)}${googleRange}`;
     case "bing":
-      return `https://www.bing.com/search?q=${encoded}&count=${Math.min(limit, 10)}`;
+      return `https://www.bing.com/search?q=${encoded}&count=${Math.min(limit, 10)}${timeRange ? `&filters=ex1%3A%22ez${timeRange === "day" ? "1" : timeRange === "week" ? "7" : timeRange === "month" ? "31" : "365"}%22` : ""}`;
     case "duckduckgo":
       return `https://html.duckduckgo.com/html?q=${encoded}`;
     case "searx": {
@@ -327,6 +365,7 @@ export class SearchService {
     const start = Date.now();
     const limit = Math.min(Number(request.limit || 6), 10);
     const engines = this.normalizeEngines(request.engines);
+    const effectiveQuery = buildAdvancedQuery(request);
     const warnings: string[] = [];
     const aggregated: SearchResult[] = [];
     let engineUsed = engines[0];
@@ -334,7 +373,7 @@ export class SearchService {
 
     for (const engine of engines) {
       try {
-        const engineResults = await this.executeEngineWithRetries(engine, request.query, limit, warnings);
+        const engineResults = await this.executeEngineWithRetries(engine, effectiveQuery, limit, warnings, request.timeRange);
         if (engineResults.length > 0) {
           engineUsed = engine;
           if (!proxyUsed) proxyUsed = this.proxyPool.lastUsedProxy;
@@ -355,7 +394,7 @@ export class SearchService {
     }
 
     return {
-      query: request.query,
+      query: effectiveQuery,
       results: aggregated.slice(0, limit),
       engines,
       engineUsed,
@@ -390,7 +429,7 @@ export class SearchService {
     return [...ENGINE_ORDER];
   }
 
-  private async executeEngineWithRetries(engine: Engine, query: string, limit: number, warnings: string[]): Promise<SearchResult[]> {
+  private async executeEngineWithRetries(engine: Engine, query: string, limit: number, warnings: string[], timeRange?: SearchRequest["timeRange"]): Promise<SearchResult[]> {
     const proxies = this.proxyPool.getAllProxies().slice(0, 2);
     const targets = proxies.length ? [...proxies, undefined] : [undefined];
     let lastError: Error | null = null;
@@ -401,7 +440,7 @@ export class SearchService {
         if (proxy) {
           this.proxyPool.lastUsedProxy = proxy;
         }
-        return await this.tryEngine(engine, query, limit, proxy);
+        return await this.tryEngine(engine, query, limit, proxy, timeRange);
       } catch (error) {
         lastError = error as Error;
         console.error("Search engine attempt failed", {
@@ -420,8 +459,8 @@ export class SearchService {
     return [];
   }
 
-  private async tryEngine(engine: Engine, query: string, limit: number, proxy?: string): Promise<SearchResult[]> {
-    const url = buildSearchUrl(engine, query, limit);
+  private async tryEngine(engine: Engine, query: string, limit: number, proxy?: string, timeRange?: SearchRequest["timeRange"]): Promise<SearchResult[]> {
+    const url = buildSearchUrl(engine, query, limit, timeRange);
     const config = buildRequestConfig(proxy);
     const response = await axios.get<string>(url, config);
     const html = response.data;

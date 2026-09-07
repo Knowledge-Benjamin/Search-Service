@@ -6,12 +6,12 @@ const searchService = new SearchService();
 
 router.post("/", async (req: Request, res: Response) => {
   try {
-    const { query, engines, limit } = req.body;
+    const { query, engines, limit, domains, excludeDomains, site, exactPhrase, location, timeRange, after, before, intitle, inurl, filetype } = req.body;
     if (!query || typeof query !== "string") {
       return res.status(400).json({ error: "query is required" });
     }
 
-    const response = await searchService.search({ query, engines, limit });
+    const response = await searchService.search({ query, engines, limit, domains, excludeDomains, site, exactPhrase, location, timeRange, after, before, intitle, inurl, filetype });
     res.json(response);
   } catch (error) {
     console.error("searchRoute error", {
