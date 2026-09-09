@@ -1,9 +1,10 @@
-FROM node:20-bullseye-slim
+FROM node:20-bookworm-slim
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
+    python3-venv \
     python3-dev \
     build-essential \
     libxml2-dev \
@@ -16,10 +17,14 @@ RUN apt-get update \
 
 WORKDIR /app
 
+ENV PATH="/opt/searx-venv/bin:$PATH"
+
 COPY package.json ./
 RUN npm install
 
-RUN python3 -m pip install --no-cache-dir searx
+RUN python3 -m venv /opt/searx-venv \
+  && /opt/searx-venv/bin/pip install --no-cache-dir --upgrade pip \
+  && /opt/searx-venv/bin/pip install --no-cache-dir searx
 
 COPY . .
 RUN npm run build
